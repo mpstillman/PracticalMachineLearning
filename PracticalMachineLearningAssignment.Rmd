@@ -1,0 +1,106 @@
+- Coursera - Data Science Specialization through Johhs Hopkins
+- Practical Machine Learning: Course Project
+- Exercise Prediction  
+- Mike Stillman
+- 7/25/2015
+
+## Summary
+This analysis will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. These 6 participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The goal is to predict the manner in which they did the exercise.  The data for this assignment was produced from the Weight Lifting Exercise Dataset from the Human Activity Recognition project.  More information about this project is located at http://groupware.les.inf.puc-rio.br/har 
+
+## Cleaning and Preprocessing Data
+
+The initial step in developing a model to predict the exercise manner is to load and evaluate the dataset.  This dataset has been split into a training and test dataset and are located at:
+Training - https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+Testing - https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data is downloaded from the URL and loaded into R using the read.csv function.
+```{r LoadData, echo=TRUE}
+## Set working directory
+dir<-"C:/DataScience/"
+setwd(dir)
+
+TrainingUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+TestingUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file(TrainingUrl, destfile = "pml-training.csv")
+download.file(TestingUrl, destfile = "pml-testing.csv")
+
+Training <- read.csv("pml-training.csv") 
+Testing <- read.csv("pml-testing.csv")
+```
+
+Next, the data is cleansed to remove columns with NAs, empty columns or columns that will not impact the prediction model.
+
+```{r CleanData, echo=TRUE}
+##Find and remove columns with NAs.
+CleanTraining<-Training[,colSums(is.na(Training)| Training == "") == 0]
+CleanTesting<-Testing[,colSums(is.na(Testing)| Testing == "") == 0]
+
+##Remove the first 7 columns as the are irrelevant to the prediction model.
+##"X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window", "num_window"
+
+ValidTraining <- CleanTraining[,-c(1:7)]
+ValidTesting <- CleanTesting[,-c(1:7)]
+
+##Remove additional variables based on their relationship to the classe variable
+
+```
+
+Now, the Training data will be partitioned to support cross validation of the model.  The Training data will be partitioned using the createDataPartition function from the caret package.  The "classe" variable will be the variable that will be predicted from the model.  75% of the data will go to the Training data set and 25% will go to the Test data set.
+
+```{r CrossValidationData, echo=TRUE}
+library(caret)
+set.seed (333)
+inTrain<-createDataPartition(y=ValidTraining$classe,p=0.75,list=FALSE)
+
+training<-ValidTraining[inTrain,]
+testing<-ValidTraining[-inTrain,]
+summary(training)
+names(training)
+```
+
+
+## Build and Test a few Prediction Models to see which one performance the best.
+Now I will test a couple prediction models.  I will try the boosting model, along with random forest.
+
+```{r ModelBoosting, echo=TRUE}
+## Model - Boosting
+modelFit <- train(classe~ .,method='gbm', data=training, verbose=FALSE)
+
+## Test the model
+## Training
+predictions<-predict(modelFit,newdata=training)
+confusionMatrix(predictions,training$classe)
+
+## Testing
+predictions<-predict(modelFit,newdata=testing)
+confusionMatrix(predictions,testing$classe)
+```
+
+The accuracy of the Boosting model is 0.973 for the Training dataset and 0.9606 for the Testing dataset.  Good, but let's also try Random Forest.   
+```{r ModelRandomForest, echo=TRUE}
+
+##Model - Random Forest
+##modelFit <- train(classe~ .,method='rf', data=training, prox=TRUE)
+
+## Test the model
+## Training
+##predictions<-predict(modelFit,newdata=training)
+##confusionMatrix(predictions,training$classe)
+
+
+## Testing
+##predictions<-predict(modelFit,newdata=testing)
+##confusionMatrix(predictions,testing$classe)
+```
+
+This model is commented out because it takes about 5 hours to run.  The results were good with the training accuracy = 0.9997 and testing accuracy = 0.9949.  However, because the model takes about 5 hours to run, I will use the Boosting model in order to submit the predictions for the 20 test sets.
+
+```{r FinalTest, echo=TRUE}
+## Test the model
+## Training
+predictions<-predict(modelFit,newdata=ValidTesting)
+predictions
+```
+
+
